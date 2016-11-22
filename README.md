@@ -88,13 +88,17 @@ void main()
 | mat3     | 3*3矩阵 |
 | mat4     | 4*4矩阵 |  
 
-#### 4. 精度修饰符
+#### 5. 精度修饰符
 | Qualifier   | 意义  |
 | ------------- |:-------------:| 
 | highp     | 高精度 |
 | mediump   | 中精度 |
 | lowp      | 低精度 |  
 | precision | 默认精度修饰符|  
+
+shader脚本中有三种级别的精度：lowp，mediump，highp。如precision highp float;   
+在vertex shader中，int和float都默认为highp级别。  
+而fragment shader中没有默认精度，必须设置精度描述符，一般设为mediump即可    
 
 在顶点语言中有如下预定义的全局默认精度语句：  
 
@@ -117,8 +121,8 @@ precision lowp samplerCube;
 | 英文   | 意义  | 例子 |
 | ------------- |:-------------:| :-------------: |
 | sampler2D     | 2D纹理,如果是1D或者3D的纹理，可以改成sampler1D和sampler3D | uniform sampler2D tex;  |
-| gl_Position   | 设置顶点信息 | gl_Position =ftransform(); |
-| gl_FragColor  | 设置着色器的信息 | gl_FragColor = color;  |  
+| gl_Position   | 设置顶点信息,gl_Position是vertex shader内建的输出变量，传递给fragment shader，必须设置 | gl_Position =ftransform(); |
+| gl_FragColor  | 设置着色器的信息,在一个简单的场景，也是刚刚说到的长方形。这个长方形所覆盖到的每一个像素，都会调用一次fragment shader | gl_FragColor = color;  |  
 | texture2D	   |texture2D函数我们可以得到一个纹素（texel）|vec4 texture2D(sampler2D, vec2);  |
 
 个人理解:
