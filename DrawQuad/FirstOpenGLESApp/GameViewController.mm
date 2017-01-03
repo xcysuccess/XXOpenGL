@@ -14,7 +14,7 @@
 
 GLuint vbo;
 GLuint program;
-GLuint positionLocation,MLocation,VLocation,PLocation,mainTextureLocation,tex;
+GLuint positionLocation,MLocation,VLocation,PLocation,mainTextureLocation,texcoordLocation;
 GLuint mainTexture;
 
 glm::mat4 identityMatrix;   //投影矩阵 3D->2D
@@ -42,16 +42,16 @@ glm::mat4 projectionMatrix; //
 }
 
 //解码bmp
--(unsigned char*) deCodeBMP:(char*) bmpData width:(int*) width height:(int*) height{
+-(unsigned char*) deCodeBMP:(char*) bmpData width:(int&) width height:(int&) height{
     unsigned char*imgData=nullptr;
     if (0x4D42==*((unsigned short*)bmpData))
     {
         int pixelDataOffset=*((unsigned short*)(bmpData+10));
-        width =((int*)(bmpData+18));
-        height =((int*)(bmpData+22));
+        width = *((int*)(bmpData+18));
+        height = *((int*)(bmpData+22));
         imgData=(unsigned char*)(bmpData+pixelDataOffset);
         //BGR -> RGB
-        for (int i=0; i< (*width)*(*height)*3; i+=3) {
+        for (int i=0; i< width * height * 3; i+=3) {
             std::swap(imgData[i],imgData[i+2]);
         }
     }
@@ -63,9 +63,10 @@ glm::mat4 projectionMatrix; //
 {
     [super viewDidLoad];
     
-    self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
     
     if (!self.context) {
+        self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
         NSLog(@"Failed to create ES context");
     }
     
@@ -111,12 +112,19 @@ glm::mat4 projectionMatrix; //
 {
     [EAGLContext setCurrentContext:self.context];
     //1.创建数据 init geometry data-> pass to gpu
-    float verticals[] = {
-        0.0f,0.0f,-2.f,
-        0.5f,0.0f,-2.f,
-        0.0f,0.5f,-2.f
+    float vertices[]={
+        //1
+        -0.5f,-0.5f,-2.0f,0.0f,0.0f,
+        0.5f,-0.5f,-2.0f,1.0f,0.0f,
+        0.5f,0.5f,-2.0f,1.0f,1.0f,
+        
+        //2
+        -0.5f,-0.5f,-2.0f,0.0f,0.0f,
+        0.5f,0.5f,-2.0f,1.0f,1.0f,
+        -0.5,0.5f,-2.0f,0.0f,1.0f,
     };
-    vbo = CreateVBOWithData(verticals, sizeof(float) * 9);
+    
+    vbo = CreateVBOWithData(vertices, sizeof(float) * 30);
     NSLog(@"vbo name is: %u",vbo);
     
     //init gpu program => render scene program
@@ -124,24 +132,25 @@ glm::mat4 projectionMatrix; //
     char *fsCode = [self loadInternalAssert:"Data/Shader/simple.fs"];
     
     program = SimpleCreateProgram(vsCode, fsCode);
-    
     positionLocation = glGetAttribLocation(program, "position");
+    texcoordLocation = glGetAttribLocation(program, "texcoord");
+    
     MLocation = glGetUniformLocation(program, "M");
     VLocation = glGetUniformLocation(program, "V");
     PLocation = glGetUniformLocation(program, "P");
+    mainTextureLocation = glGetUniformLocation(program, "U_MainTexture");
+    
     //三维物体3D->2D
     CGFloat aspectF = [UIScreen mainScreen].bounds.size.width/[UIScreen mainScreen].bounds.size.height;
     projectionMatrix = glm::perspective(50.f, 640.f/960.f, 0.1f, 1000.f);
     
     char*bmpData = [self loadInternalAssert:"Data/wood.bmp"];
     int width = 0,height = 0;
-    unsigned char*imageData = [self deCodeBMP:bmpData width:&width height:&height];
+    unsigned char*imageData = [self deCodeBMP:bmpData width:width height:height];
     NSLog(@"bmp width %d height %d",width,height);
     
     mainTexture = GenerateTexture2D(imageData, width, height);
     NSLog(@"bmp width %d height %d",width,height);
-    delete bmpData;
-    
     delete bmpData;
 }
 
@@ -170,15 +179,21 @@ glm::mat4 projectionMatrix; //
     glUniformMatrix4fv(VLocation, 1, GL_FALSE, glm::value_ptr(identityMatrix));
     glUniformMatrix4fv(PLocation, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
     
+    glBindTexture(GL_TEXTURE_2D, mainTexture);
+    glUniform1i(mainTextureLocation, 0);        //设置0号纹理单元，默认激活0
+    
     //3.set vbo
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     //绑定属性组
     glEnableVertexAttribArray(positionLocation);
-    glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, 0);
+    glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, sizeof(float)*5, 0);
+    
+    glEnableVertexAttribArray(texcoordLocation);
+    glVertexAttribPointer(texcoordLocation, 2, GL_FLOAT, GL_FALSE, sizeof(float)*5, (void*)(sizeof(float)*3));
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
     glUseProgram(0);
 }
 
